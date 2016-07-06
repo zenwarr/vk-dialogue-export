@@ -1,5 +1,7 @@
 # A tool for exporting private messages from VK.COM social network
 
+Exports dialogs to HTML file, downloading attached images.
+
 To use it, you should edit `config.ini` file and enter login and password for your account. Now you can start export by running
 
 ```
