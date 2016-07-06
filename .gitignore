@@ -1,0 +1,4 @@
+*.pyc
+*~
+*vk_exported_*
+.idea/

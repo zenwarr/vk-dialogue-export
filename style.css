@@ -1,0 +1,48 @@
+body {
+  padding: 10px;
+}
+
+.msg {
+  margin-bottom: 0.8em;
+  overflow: hidden;
+}
+
+.msg-head {
+  color: gray;
+  font-size: 80%;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+.att__title {
+  font-size: 70%;
+  color: gray;
+}
+
+.att__image:before {
+  content: 'Failed to download this image!';
+  background: rgba(red, .5);
+  color: white;
+}
+
+.att--photo .att__title {
+  display: none;
+}
+
+.att--sticker img {
+  width: 128px;
+  height: 128px;
+}
+
+.att--wall {
+  padding: 10px;
+  background: rgb(240, 240, 240);
+  display: inline-block;
+}
+
+.att--video .att__thumb {
+  max-width: 300px;
+}
