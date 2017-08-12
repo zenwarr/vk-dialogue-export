@@ -4,13 +4,13 @@ import codecs
 import datetime
 import json
 import sys
-import urllib
-import urllib2
+import urllib.parse
+import urllib.request
 import os
-import cgi
+import html
 import argparse
 import vk_auth
-import ConfigParser
+import configparser
 
 
 parser = argparse.ArgumentParser(description="Exports VK.COM messages into HTML files. "
@@ -20,7 +20,7 @@ parser.add_argument('--chat', type=int, dest="chat", help="ID of group chat whic
 parser.add_argument('--group', type=int, dest="group", help="ID of public group whose dialog you want to export")
 
 
-config = ConfigParser.ConfigParser()
+config = configparser.ConfigParser()
 config.read('config.ini')
 
 
@@ -32,22 +32,28 @@ class VkApi:
   app_id = config.get('auth', 'appid')
 
   def initialize(self):
+    if self.login == 'YOUR_LOGIN' or self.password == 'YOUR_PASSWORD':
+      sys.stdout.write('You should edit config.ini file and enter your login and password '
+                       'for vk.com, otherwise it is not possible to download your messages!')
+      return False
+
     try:
       self.token, self.user_id = vk_auth.auth(self.login, self.password, self.app_id, 'messages')
-      # self.call('stats.trackVisitor', [])
     except RuntimeError:
       sys.stdout.write("Authentication failed, maybe login/password are wrong?\n")
+      return False
 
     sys.stdout.write("Authentication successful\n")
+    return True
 
   def call(self, method, params):
     params.append(("access_token", self.token))
     params.append(("v", "5.52"))
-    url = "https://api.vk.com/method/%s?%s" % (method, urllib.urlencode(params))
+    url = "https://api.vk.com/method/%s?%s" % (method, urllib.parse.urlencode(params))
 
     for j in range(3):
       try:
-        return json.loads(urllib2.urlopen(url, timeout=20).read())["response"]
+        return json.loads(urllib.request.urlopen(url, timeout=20).read())["response"]
       except Exception as e:
         sys.stdout.write('Got error while requesting api method %s, trying to resume...\n' % method)
 
@@ -59,7 +65,7 @@ def fmt_time(secs):
 
 
 def esc(str):
-  return cgi.escape(str)
+  return html.escape(str)
 
 
 class Progress:
@@ -78,7 +84,8 @@ class Progress:
     self.steps_on_this_stage = total_steps
     percent = (float(steps) / float(total_steps)) * 100
     title = '%s of %s' % (self.cur_stage + 1, self.total_stages)
-    text = title.ljust(10) + ' [' + ('#' * (int(5 * round(float(percent) / 5)) / 5)).ljust(20) + ']'
+    steps_text = '(%s / %s)' % (steps, total_steps)
+    text = title.ljust(10) + ' [' + ('#' * int((5 * round(float(percent)) / 5) / 5)).ljust(20) + '] ' + steps_text
     sys.stdout.write('\r' + text)
     sys.stdout.flush()
 
@@ -96,11 +103,13 @@ def fetch_all_dialogs(api):
       yield dialog
     offset += len(dialogs['items'])
 
-
 arguments = parser.parse_args()
 
+sys.stdout.write('Trying to authenticate with your login and password...\n')
+
 api = VkApi()
-api.initialize()
+if not api.initialize():
+  sys.exit(-1)
 
 
 class UserFetcher:
@@ -150,7 +159,7 @@ class DialogExporter:
 
   def find_largest(self, obj, key_override='photo_'):
     def get_photo_keys():
-      for k, v in obj.iteritems():
+      for k, v in iter(obj.items()):
         if k.startswith(key_override):
           yield k[len(key_override):]
 
@@ -168,7 +177,7 @@ class DialogExporter:
 
     def try_download(src_url):
       try:
-        request = urllib2.urlopen(src_url, timeout=20)
+        request = urllib.request.urlopen(src_url, timeout=20)
         with open(output_filename, 'wb') as f:
           f.write(request.read())
           return True
@@ -334,8 +343,7 @@ class DialogExporter:
       self.out.write(u'</div>')
 
       cur_step += 1
-      if cur_step % 50 == 0:
-        progress.update(cur_step, total)
+      progress.update(cur_step, total)
 
     self.out.write('</body>')
 
@@ -357,20 +365,22 @@ elif arguments.chat != None:
 elif arguments.group != None:
   exps = [DialogExporter(api, 'group', arguments.group)]
 else:
+  sys.stdout.write('You have not provided any specific dialogs to export, assuming you want to export them all...\n')
+  sys.stdout.write('Enumerating your dialogs...\n')
   for dialog in fetch_all_dialogs(api):
     exporter = None
 
     last_msg = dialog['message']
 
     if 'chat_id' in last_msg:
-      # this is group chat
+      # this is a group chat
       exporter = DialogExporter(api, 'chat', last_msg['chat_id'])
     else:
       exporter = DialogExporter(api, 'user', last_msg['user_id'])
 
     exps.append(exporter)
 
-sys.stdout.write('Exporting %d dialogs\n' % len(exps))
+sys.stdout.write('Exporting {0} dialog{1}\n'.format(len(exps), 's' if len(exps) > 1 else ''))
 progress.total_stages = len(exps)
 for exp in exps:
   exp.export()

@@ -24,7 +24,7 @@ img {
 
 .att__image:before {
   content: 'Failed to download this image!';
-  background: rgba(red, .5);
+  background: rgba(255, 0, 0, 0.5);
   color: white;
 }
 

@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
-import cookielib
-import urllib2
+import http.cookiejar
 import urllib
-from urlparse import urlparse
-from HTMLParser import HTMLParser
+import urllib.request
+import urllib.parse
+import html.parser
 
-class FormParser(HTMLParser):
+
+class FormParser(html.parser.HTMLParser):
     def __init__(self):
-        HTMLParser.__init__(self)
+        html.parser.HTMLParser.__init__(self)
         self.url = None
         self.params = {}
         self.in_form = False
@@ -43,6 +44,7 @@ class FormParser(HTMLParser):
             self.in_form = False
             self.form_parsed = True
 
+
 def auth(email, password, client_id, scope):
     def split_key_value(kv_pair):
         kv = kv_pair.split("=")
@@ -57,7 +59,7 @@ def auth(email, password, client_id, scope):
             )
         doc = response.read()
         parser = FormParser()
-        parser.feed(doc)
+        parser.feed(doc.decode('utf-8'))
         parser.close()
         if not parser.form_parsed or parser.url is None or "pass" not in parser.params or \
           "email" not in parser.params:
@@ -65,7 +67,7 @@ def auth(email, password, client_id, scope):
         parser.params["email"] = email
         parser.params["pass"] = password
         if parser.method == "POST":
-            response = opener.open(parser.url, urllib.urlencode(parser.params))
+            response = opener.open(parser.url, urllib.parse.urlencode(parser.params).encode('utf-8'))
         else:
             raise NotImplementedError("Method '%s'" % parser.method)
         return response.read(), response.geturl()
@@ -78,24 +80,23 @@ def auth(email, password, client_id, scope):
         if not parser.form_parsed or parser.url is None:
               raise RuntimeError("Something wrong")
         if parser.method == "POST":
-            response = opener.open(parser.url, urllib.urlencode(parser.params))
+            response = opener.open(parser.url, urllib.parse.urlencode(parser.params))
         else:
             raise NotImplementedError("Method '%s'" % params.method)
         return response.geturl()
 
-
     if not isinstance(scope, list):
         scope = [scope]
-    opener = urllib2.build_opener(
-        urllib2.HTTPCookieProcessor(cookielib.CookieJar()),
-        urllib2.HTTPRedirectHandler())
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+        urllib.request.HTTPRedirectHandler())
     doc, url = auth_user(email, password, client_id, scope, opener)
-    if urlparse(url).path != "/blank.html":
+    if urllib.parse.urlparse(url).path != "/blank.html":
         # Need to give access to requested scope
         url = give_access(doc, opener)
-    if urlparse(url).path != "/blank.html":
+    if urllib.parse.urlparse(url).path != "/blank.html":
         raise RuntimeError("Expected success here")
-    answer = dict(split_key_value(kv_pair) for kv_pair in urlparse(url).fragment.split("&"))
+    answer = dict(split_key_value(kv_pair) for kv_pair in urllib.parse.urlparse(url).fragment.split("&"))
     if "access_token" not in answer or "user_id" not in answer:
         raise RuntimeError("Missing some values in answer")
     return answer["access_token"], answer["user_id"]
