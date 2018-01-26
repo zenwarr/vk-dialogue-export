@@ -75,12 +75,12 @@ def auth(email, password, client_id, scope):
     # Permission request form
     def give_access(doc, opener):
         parser = FormParser()
-        parser.feed(doc)
+        parser.feed(doc.decode('utf-8'))
         parser.close()
         if not parser.form_parsed or parser.url is None:
               raise RuntimeError("Something wrong")
         if parser.method == "POST":
-            response = opener.open(parser.url, urllib.parse.urlencode(parser.params))
+            response = opener.open(parser.url, urllib.parse.urlencode(parser.params).encode('utf-8'))
         else:
             raise NotImplementedError("Method '%s'" % params.method)
         return response.geturl()
