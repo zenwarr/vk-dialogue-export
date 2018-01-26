@@ -7,7 +7,7 @@ You need to have Python > 3.4 to be installed on your computer in order to use t
 To use it, you should edit `config.ini` file and enter login and password for your account. Now you can start the export by running
 
 ```
-python vk-dialogue-export.py
+python vk-dialog-export.py
 ```
 
 This script does not send nor stores your personal information or passwords elsewhere. Be careful not to expose sensitive information to third parties!
