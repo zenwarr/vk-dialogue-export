@@ -112,6 +112,27 @@ if not api.initialize():
   sys.exit(-1)
 
 
+class CharacterData:
+  name = None
+  link = None
+  type = None
+  obj = None
+
+  def __init__(self, type, data):
+    self.type = type
+    self.obj = data
+    if type == 'user':
+      self.name = esc('%s %s' % (data['first_name'], data['last_name']))
+      self.first_name = esc(data['first_name'])
+      self.link = 'https://vk.com/id%s' % data['id']
+    elif type == 'group':
+      self.name = esc(data['name'])
+      self.first_name = esc(data['name'])
+      self.link = 'https://vk.com/%s' % data['screen_name']
+    else:
+      raise RuntimeError("Unknown type: %d" % type)
+
+
 class UserFetcher:
   api = None
   cache = {}
@@ -121,7 +142,12 @@ class UserFetcher:
 
   def get_data(self, user_id):
     if not (user_id in self.cache):
-      self.cache[user_id] = self.api.call("users.get", [("user_ids", str(user_id))])[0]
+      if user_id < 0:
+        groups = self.api.call("groups.getById", [("group_id", str(-user_id))])
+        self.cache[user_id] = CharacterData("group", groups[0])
+      else:
+        users = self.api.call("users.get", [("user_ids", str(user_id))])
+        self.cache[user_id] = CharacterData("user", users[0])
     return self.cache[user_id]
 
 
@@ -320,17 +346,18 @@ class DialogExporter:
       # write message head
       from_id = msg['from_id']
 
+      from_user = users.get_data(from_id)
+
       self.out.write(u'''<div class="msg"><div class="msg-head">[{date}] <a href="{profile}" title="{full_name}">
                       {first_name}</a>:</div><div class="msg-body">{message}</div>'''.format(**{
                 'date': datetime.datetime.fromtimestamp(
                     int(msg["date"])).strftime('%Y-%m-%d %H:%M:%S'),
 
-                'full_name': esc('%s %s' % (
-                    users.get_data(from_id)['first_name'], users.get_data(from_id)['last_name'])),
+                'full_name': from_user.name,
 
-                'first_name': esc(users.get_data(from_id)['first_name']),
+                'first_name': from_user.first_name,
 
-                'profile': 'https://vk.com/id%s' % from_id,
+                'profile': from_user.link,
 
                 'message': esc(msg["body"])
       }))
