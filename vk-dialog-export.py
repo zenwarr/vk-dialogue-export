@@ -17,6 +17,15 @@ parser = argparse.ArgumentParser(description="Exports VK.COM messages into HTML 
 parser.add_argument('--person', type=int, dest="person", help="ID of person whose dialog you want to export")
 parser.add_argument('--chat', type=int, dest="chat", help="ID of group chat which you want to export")
 parser.add_argument('--group', type=int, dest="group", help="ID of public group whose dialog you want to export")
+parser.add_argument('--docs', dest="docs", default=False, action="store_true", help="Do we need to download documents?")
+parser.add_argument('--docs-depth', dest="docs_depth", default=100, type=int,
+                    help="If set to 0, only documents attached to the message itself will be downloaded. If set " +
+                    "to 1, documents from attached posts are going to be downloaded too, and so on. Default is 100")
+parser.add_argument('--audio', dest="audio", default=False, action="store_true", help="Do we need to download audio?")
+parser.add_argument('--audio-depth', dest="audio_depth", default=100, type=int,
+                    help="If set to 0, only audio files attached to the message itself will be downloaded. If set " +
+                    "to 1, audio file from attached posts are going to be downloaded too, and so on. Default is 100")
+
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -62,6 +71,14 @@ def fmt_time(secs):
     return str(datetime.timedelta(seconds=secs))
 
 
+def fmt_size(size):
+    for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
+        if abs(size) < 1024.0:
+            return "%3.1f%sB" % (size, unit)
+        size /= 1024.0
+    return "%.1f%sB" % (size, 'Yi')
+
+
 def esc(text):
     return html.escape(text)
 
@@ -70,6 +87,8 @@ class Progress:
     total_stages = 0
     cur_stage = 0
     steps_on_this_stage = 0
+    cur_step_on_this_stage = 0
+    msg = ''
 
     def next_stage(self):
         if self.steps_on_this_stage != 0:
@@ -80,10 +99,26 @@ class Progress:
 
     def update(self, steps, total_steps):
         self.steps_on_this_stage = total_steps
-        percent = (float(steps) / float(total_steps)) * 100
+        self.cur_step_on_this_stage = steps
+        self._update()
+
+    def step_msg(self, msg):
+        self.msg = msg
+        self._update()
+
+    def clear_step_msg(self):
+        self.step_msg('')
+
+    def error(self, msg):
+        sys.stdout.write('\r' + msg)
+        self._update()
+
+    def _update(self):
+        percent = (float(self.cur_step_on_this_stage) / float(self.steps_on_this_stage)) * 100
         title = '%s of %s' % (self.cur_stage + 1, self.total_stages)
-        steps_text = '(%s / %s)' % (steps, total_steps)
-        text = title.ljust(10) + ' [' + ('#' * int((5 * round(float(percent)) / 5) / 5)).ljust(20) + '] ' + steps_text
+        steps_text = '(%s / %s)' % (self.cur_step_on_this_stage, self.steps_on_this_stage)
+        msg_text = ' | ' + self.msg if self.msg else ''
+        text = title.ljust(10) + ' [' + ('#' * int((5 * round(float(percent)) / 5) / 5)).ljust(20) + '] ' + steps_text + msg_text
         sys.stdout.write('\r' + text)
         sys.stdout.flush()
 
@@ -155,9 +190,19 @@ users = UserFetcher(api)
 
 class AttachContext:
     prefix = ''
+    depth = 0
 
-    def __init__(self, prefix):
+    def __init__(self, prefix, depth=0):
         self.prefix = prefix
+        self.depth = depth
+
+
+def guess_image_ext(content_type):
+    return {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif'
+    }.get(content_type.lower(), 'jpg')
 
 
 class DialogExporter:
@@ -190,35 +235,66 @@ class DialogExporter:
 
         return "%s%s" % (key_override, max(map(lambda k: int(k), get_photo_keys())))
 
-    def download_image(self, message, key_override="photo_"):
+    def download_file(self, url, out_filename, auto_image_ext=False, size=-1):
+        if not url:
+            # blocked documents or audio files go here
+            return None
+
         if not os.path.exists(self.attach_dir):
             os.makedirs(self.attach_dir)
         elif not os.path.isdir(self.attach_dir):
             raise OSError("Unable to create attachments directory %s" % self.attach_dir)
 
-        output_filename = esc("%s/%d.jpg" % (self.attach_dir, message["id"]))
-        if os.path.exists(output_filename) and os.stat(output_filename).st_size > 0:
-            return output_filename  # image was already downloaded?
+        out_path = esc("%s/%s" % (self.attach_dir, out_filename))
+        has_ext = len(os.path.splitext(out_path)[1]) > 0
+        if has_ext and os.path.exists(out_path) and os.stat(out_path).st_size > 0:
+            return out_path  # file was already downloaded?
+
+        def update_progress():
+            display_filename = out_filename
+            if auto_image_ext and not has_ext:
+                display_filename = out_filename + '.jpg'  # we cannot determine it right now, but jpg is common, so...
+            if size > 0:
+                display_filename += ', ' + fmt_size(size)
+            progress.step_msg('%s -> %s' % (url, display_filename))
 
         def try_download(src_url):
+            nonlocal out_filename
+            nonlocal out_path
+            nonlocal has_ext
+
             try:
                 request = urllib.request.urlopen(src_url, timeout=20)
-                with open(output_filename, 'wb') as f:
+                if not has_ext and auto_image_ext and 'Content-Type' in request.info():
+                    ext = '.' + guess_image_ext(request.info()['Content-Type'])
+                    out_filename = out_filename + ext
+                    out_path = out_path + ext
+                    has_ext = True
+                    update_progress()
+                with open(out_path, 'wb') as f:
                     f.write(request.read())
                     return True
             except Exception:
                 return None
 
-        src_url = message[self.find_largest(message, key_override)]
-        try_count = 0
-        while try_count < 3:
-            # sys.stdout.write("Downloading photo %s\n" % (message["id"]))
-            if try_download(src_url):
-                return output_filename
-            try_count += 1
+        update_progress()
+        try:
+            try_count = 0
+            while try_count < 3:
+                # sys.stdout.write("Downloading photo %s\n" % (message["id"]))
+                if try_download(url):
+                    return out_path
+                try_count += 1
+        finally:
+            progress.clear_step_msg()
 
-        sys.stdout.write("Failed to retrieve image (%s) after 3 attempts, skipping\n" % src_url)
+        sys.stdout.write("\nFailed to retrieve file (%s) after 3 attempts, skipping\n" % url)
         return None
+
+    def download_image(self, attachment, key_override="photo_"):
+        filename = str(attachment['id'])
+        url = attachment[self.find_largest(attachment, key_override)]
+        return self.download_file(url, filename, True)
 
     def fetch_messages(self):
         offset = 0
@@ -301,22 +377,70 @@ class DialogExporter:
             )
 
         if "attachments" in wall:
-            self.export_attachments(AttachContext(context.prefix + '>'), wall['attachments'])
+            self.export_attachments(AttachContext(context.prefix + '>', context.depth + 1), wall['attachments'])
 
         self.out.write(u'</div>')
 
     def handle_audio(self, context, audio):
-        self.out.write(
-            u'<div class="att att--audio"><span class="att__title">%sAudio: </span><strong>%s</strong> - %s [%s]</div>' % (
-                context.prefix,
-                esc(audio["artist"]),
-                esc(audio["title"]),
-                fmt_time(audio["duration"])))
+        if arguments.audio and context.depth <= arguments.audio_depth:
+            filename = '%s.mp3' % audio['id']
+            url = audio['url']
+
+            downloaded = None
+            if not url:
+                progress.error("Audio file [%s - %s] is no more available, skipping\n"
+                               % (audio['artist'], audio['title']))
+            else:
+                downloaded = self.download_file(url, filename)
+
+            if downloaded is not None:
+                self.out.write(u"""<div class="att att-audio"><span class="att__title">%sAudio: </span><strong>%s</strong> - %s [%s] <audio controls src="%s" data-original="%s" /></div>"""
+                               % (
+                                    context.prefix,
+                                    esc(audio["artist"]),
+                                    esc(audio["title"]),
+                                    fmt_time(audio["duration"]),
+                                    downloaded,
+                                    url
+                               ))
+            else:
+                self.out.write(u"""<div class="att att--audio att--failed"><span class="att__title">%sAudio: 
+                                        </span></span><strong>%s</strong> - %s [%s] [Failed to download audio %s]</div>""" % (
+                    context.prefix,
+                    esc(audio["artist"]),
+                    esc(audio["title"]),
+                    fmt_time(audio["duration"]),
+                    url
+                ))
 
     def handle_doc(self, context, doc):
-        self.out.write(u'<div class="att att--doc"><span class="att__title">%sDocument: </span>%s</div>' % (
-            context.prefix,
-            esc(doc["title"])))
+        if arguments.docs and context.depth <= arguments.docs_depth:
+            filename = '%s.%s' % (doc['id'], doc['ext'])
+            url = doc['url']
+
+            downloaded = None
+            if not url:
+                progress.error("Document [%s] is no more available, skipping\n" % doc['title'])
+            else:
+                downloaded = self.download_file(url, filename, False, doc['size'])
+
+            if downloaded is not None:
+                self.out.write(u"""<div class="att att--doc"><span class="att__title">%sDocument: </span><a href="%s"
+                                     data-original="%s">%s</a></div>""" % (
+                    context.prefix,
+                    downloaded,
+                    esc(url),
+                    doc['title']
+                ))
+            else:
+                self.out.write(u"""<div class="att att--doc att--failed"><span class="att__title">%sDocument: 
+                        </span>[Failed to download document %s]</div>""" % (
+                    context.prefix,
+                    esc(doc["title"])))
+        else:
+            self.out.write(u'<div class="att att--doc"><span class="att__title">%sDocument: </span>%s</div>' % (
+                context.prefix,
+                esc(doc["title"])))
 
     def handle_gift(self, context, gift):
         gift_thumb = self.download_image(gift, 'thumb_')
@@ -414,6 +538,12 @@ else:
             exporter = DialogExporter(api, 'user', last_msg['user_id'])
 
         exps.append(exporter)
+
+if not arguments.docs:
+    sys.stdout.write('Attached documents are not downloaded by default. Restart the script with --docs to enable downloading documents\n')
+
+if not arguments.audio:
+    sys.stdout.write('Attached audio files are not downloaded by default. Restart the script with --audio to enable downloading audio files\n')
 
 sys.stdout.write('Exporting {0} dialog{1}\n'.format(len(exps), 's' if len(exps) > 1 else ''))
 progress.total_stages = len(exps)
