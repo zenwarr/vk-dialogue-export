@@ -16,6 +16,11 @@ body {
   margin: 1em 0;
 }
 
+.msg--important {
+  padding: 0.5em 0;
+  background: #fbc9c9;
+}
+
 .msg-head {
   color: gray;
   font-size: 80%;

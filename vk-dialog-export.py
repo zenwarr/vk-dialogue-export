@@ -534,20 +534,25 @@ class DialogExporter:
             else:
                 self.handle_unknown(context, att)
 
-    def export_message(self, msg, nest_level = 0):
+    def export_message(self, msg, nest_level=0):
         # write message head
         from_id = msg['from_id'] if 'from_id' in msg else msg['user_id']
 
         from_user = users.get_data(from_id)
 
-        self.out.write(u'''<div class="msg msg--level-{level}"><div class="msg-head">[{date}] <a href="{profile}" title="{full_name}">
+        extra_classes = []
+        if 'important' in msg and msg['important']:
+            extra_classes.append('msg--important')
+
+        self.out.write(u'''<div class="msg msg--level-{level} {extra_classes}"><div class="msg-head">[{date}] <a href="{profile}" title="{full_name}">
                               {first_name}</a>:</div><div class="msg-body">{message}</div>'''.format(**{
             'level': nest_level,
             'date': datetime.datetime.fromtimestamp(int(msg["date"])).strftime('%Y-%m-%d %H:%M:%S'),
             'full_name': from_user.name,
             'first_name': from_user.first_name,
             'profile': from_user.link,
-            'message': esc(msg["body"])
+            'message': esc(msg["body"]),
+            'extra_classes': ' '.join(extra_classes)
         }))
 
         # handle forwarded messages
