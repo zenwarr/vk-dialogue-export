@@ -71,7 +71,7 @@ class VkApi:
 
     def call(self, method, params):
         params.append(("access_token", self.token))
-        params.append(("v", "5.52"))
+        params.append(("v", "5.74"))
         url = "https://api.vk.com/method/%s?%s" % (method, urllib.parse.urlencode(params))
 
         for j in range(3):
@@ -85,6 +85,10 @@ class VkApi:
 
 def fmt_time(secs):
     return str(datetime.timedelta(seconds=secs))
+
+
+def fmt_timestamp(timestamp):
+    return datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def fmt_size(size):
@@ -544,15 +548,21 @@ class DialogExporter:
         if 'important' in msg and msg['important']:
             extra_classes.append('msg--important')
 
+        updated = ''
+        if 'update_time' in msg and msg['update_time']:
+            extra_classes.append('msg--edited')
+            updated = 'Edited at %s' % fmt_timestamp(msg['update_time'])
+
         self.out.write(u'''<div class="msg msg--level-{level} {extra_classes}"><div class="msg-head">[{date}] <a href="{profile}" title="{full_name}">
-                              {first_name}</a>:</div><div class="msg-body">{message}</div>'''.format(**{
+                              {first_name}</a> {updated}:</div><div class="msg-body">{message}</div>'''.format(**{
             'level': nest_level,
-            'date': datetime.datetime.fromtimestamp(int(msg["date"])).strftime('%Y-%m-%d %H:%M:%S'),
+            'date': fmt_timestamp(msg['date']),
             'full_name': from_user.name,
             'first_name': from_user.first_name,
             'profile': from_user.link,
             'message': esc(msg["body"]),
-            'extra_classes': ' '.join(extra_classes)
+            'extra_classes': ' '.join(extra_classes),
+            'updated': updated
         }))
 
         # handle forwarded messages
