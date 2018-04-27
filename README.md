@@ -37,6 +37,9 @@ python vk-dialog-export.py
 This script does not send nor stores your personal information or passwords elsewhere except `config.ini` file.
 Be careful not to expose sensitive information to third parties!
 
+By default, output will be written inside `./out` directory.
+You can set output directory with `--out=/home/user/out` option.
+
 By default, the script exports all available dialogs, but you can export a single dialog too by providing one of the following options:
 
 ```

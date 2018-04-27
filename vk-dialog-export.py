@@ -27,6 +27,7 @@ parser.add_argument('--audio-depth', dest="audio_depth", default=100, type=int,
                     "to 1, audio file from attached posts are going to be downloaded too, and so on. Default is 100")
 parser.add_argument('--no-voice', dest="no_voice", default=False, action="store_true",
                     help="Do not download voice messages")
+parser.add_argument('--out', dest="out", default="out", type=str, help="Directory for output files")
 
 
 config = configparser.ConfigParser()
@@ -57,9 +58,8 @@ class VkApi:
                 return False
 
             try:
+                sys.stdout.write('Trying to authenticate with your login and password...\n')
                 self.token, self.user_id = vk_auth.auth(self.login, self.password, self.app_id, 'messages')
-                print('token = ' + self.token)
-                print('user_id = ' + self.user_id)
             except RuntimeError:
                 sys.stdout.write("Authentication failed, maybe login/password are wrong?\n")
                 return False
@@ -155,7 +155,15 @@ def fetch_all_dialogs(api):
 
 arguments = parser.parse_args()
 
-sys.stdout.write('Trying to authenticate with your login and password...\n')
+output_dir = arguments.out or 'out'
+output_dir = os.path.abspath(os.path.expandvars(output_dir))
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+if not os.path.isdir(output_dir):
+    sys.stderr.write("Failed to create output directory %s" % out_dir)
+    sys.exit(-1)
+
+sys.stdout.write('Output directory is %s\n' % output_dir)
 
 api = VkApi()
 if not api.initialize():
@@ -237,10 +245,8 @@ class DialogExporter:
     @property
     def out(self):
         if self.out_obj is None:
-            self.out_obj = codecs.open(
-                'vk_export_%s_%s.html' % (self.type, self.id),
-                "w+", "utf-8"
-            )
+            out_file = os.path.join(output_dir, '%s_%s.html' % (self.type, abs(self.id)))
+            self.out_obj = codecs.open(out_file, "w+", "utf-8")
         return self.out_obj
 
     def find_largest(self, obj, key_override='photo_'):
@@ -261,10 +267,11 @@ class DialogExporter:
         elif not os.path.isdir(self.attach_dir):
             raise OSError("Unable to create attachments directory %s" % self.attach_dir)
 
-        out_path = esc("%s/%s" % (self.attach_dir, out_filename))
-        has_ext = len(os.path.splitext(out_path)[1]) > 0
-        if has_ext and os.path.exists(out_path) and os.stat(out_path).st_size > 0:
-            return out_path  # file was already downloaded?
+        rel_out_path = esc("%s/%s" % (self.attach_dir, out_filename))
+        abs_out_path = os.path.join(output_dir, rel_out_path)
+        has_ext = len(os.path.splitext(rel_out_path)[1]) > 0
+        if has_ext and os.path.exists(abs_out_path) and os.stat(abs_out_path).st_size > 0:
+            return rel_out_path  # file was already downloaded?
 
         def update_progress():
             display_filename = out_filename
@@ -276,7 +283,8 @@ class DialogExporter:
 
         def try_download(src_url):
             nonlocal out_filename
-            nonlocal out_path
+            nonlocal rel_out_path
+            nonlocal abs_out_path
             nonlocal has_ext
 
             try:
@@ -284,10 +292,11 @@ class DialogExporter:
                 if not has_ext and auto_image_ext and 'Content-Type' in request.info():
                     ext = '.' + guess_image_ext(request.info()['Content-Type'])
                     out_filename = out_filename + ext
-                    out_path = out_path + ext
+                    rel_out_path = rel_out_path + ext
+                    abs_out_path = abs_out_path + ext
                     has_ext = True
                     update_progress()
-                with open(out_path, 'wb') as f:
+                with open(abs_out_path, 'wb') as f:
                     f.write(request.read())
                     return True
             except Exception:
@@ -299,7 +308,7 @@ class DialogExporter:
             while try_count < 3:
                 # sys.stdout.write("Downloading photo %s\n" % (message["id"]))
                 if try_download(url):
-                    return out_path
+                    return rel_out_path
                 try_count += 1
         finally:
             progress.clear_step_msg()
