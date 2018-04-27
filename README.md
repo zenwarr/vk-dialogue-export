@@ -4,13 +4,26 @@ Exports dialogs to HTML file. Downloads attached images, stickers, handles and s
 
 You need to have Python > 3.4 to be installed on your computer in order to use the script.
 
-To use it, you should edit `config.ini` file and enter login and password for your account. Now you can start the export by running
+To use it, you should give the script access to your account first.
+There are several authentication methods supported.
+
+1. Open `config.ini` file and enter your login and password instead of `YOUR_LOGIN` and `YOUR_PASSWORD`.
+Now you can start the script.
+
+2. Just start the script and it will give you an url.
+Open it in browser (or just press Enter in console) and give access to the application.
+You will be redirected to an almost blank page.
+Copy access_token and user_id parameters from URL and copy them into config.ini instead of `YOUR_ACCESS_TOKEN` and `YOUR_USER_ID`.
+Now you can start the script.
+
+Export can be started with the following command:
 
 ```
 python vk-dialog-export.py
 ```
 
-This script does not send nor stores your personal information or passwords elsewhere. Be careful not to expose sensitive information to third parties!
+This script does not send nor stores your personal information or passwords elsewhere except `config.ini` file.
+Be careful not to expose sensitive information to third parties!
 
 By default, the script exports all available dialogs, but you can export a single dialog too by providing one of the following options:
 
@@ -19,6 +32,27 @@ By default, the script exports all available dialogs, but you can export a singl
 --chat=CHAT_ID (to export a chat)
 --group=GROUP_ID (to export dialog with a public group)
 ```
+
+Also, the script does NOT download most of documents or audio files by default.
+The only documents that are downloaded by default are voice messages.
+You can use the following options to control what should be downloaded:
+
+```
+--docs (to download all documents)
+--audio (to download all audio files)
+--no-voice (to NOT download voice messages)
+```
+
+If you want to download only documents and audio files that are directly attached to the messages (not the ones attached to shared post), use the following options:
+
+```
+--docs-depth=0
+--audio-depth=0
+```
+
+If `--docs-depth=1` or `--audio-depth=1`, documents are audio files attached to shared posts will be downloaded too.
+
+Note: you still will not be able to download most audio files because vk.com has disabled its audio API for legal reasons.
 
 ## Notes
 
