@@ -413,7 +413,38 @@ class DialogExporter:
                     url
                 ))
 
+    def handle_voice_msg(self, context, audio_msg):
+        filename = '%s.%s' % (audio_msg['id'], audio_msg['ext'])
+        url = audio_msg['preview']['audio_msg']['link_mp3'] or audio_msg['preview']['audio_msg']['link_ogg']
+
+        downloaded = None
+        if not url:
+            progress.error("Voice message is no more available, skipping\n")
+        else:
+            downloaded = self.download_file(url, filename)
+
+        if downloaded is not None:
+            self.out.write(
+                u"""<div class="att att-voice"><span class="att__title">%sVoice message: </span>[%s] <audio controls src="%s" data-original="%s" /></div>"""
+                % (
+                    context.prefix,
+                    fmt_time(audio_msg["preview"]["audio_msg"]["duration"]),
+                    downloaded,
+                    url
+                ))
+        else:
+            self.out.write(u"""<div class="att att--voice att--failed"><span class="att__title">%sVoice message: 
+                                                    </span></span>[%s] [Failed to download audio %s]</div>""" % (
+                context.prefix,
+                fmt_time(audio_msg["preview"]["audio_msg"]["duration"]),
+                url
+            ))
+
     def handle_doc(self, context, doc):
+        if 'audio_msg' in doc['preview']:
+            self.handle_voice_msg(context, doc)
+            return
+
         if arguments.docs and context.depth <= arguments.docs_depth:
             filename = '%s.%s' % (doc['id'], doc['ext'])
             url = doc['url']
