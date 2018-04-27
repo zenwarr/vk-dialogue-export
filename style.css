@@ -7,6 +7,15 @@ body {
   overflow: hidden;
 }
 
+.msg .msg {
+  padding: 0.5em;
+}
+
+.msg-group {
+  background: rgb(240, 240, 240);
+  margin: 1em 0;
+}
+
 .msg-head {
   color: gray;
   font-size: 80%;

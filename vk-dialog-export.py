@@ -534,6 +534,36 @@ class DialogExporter:
             else:
                 self.handle_unknown(context, att)
 
+    def export_message(self, msg, nest_level = 0):
+        # write message head
+        from_id = msg['from_id'] if 'from_id' in msg else msg['user_id']
+
+        from_user = users.get_data(from_id)
+
+        self.out.write(u'''<div class="msg msg--level-{level}"><div class="msg-head">[{date}] <a href="{profile}" title="{full_name}">
+                              {first_name}</a>:</div><div class="msg-body">{message}</div>'''.format(**{
+            'level': nest_level,
+            'date': datetime.datetime.fromtimestamp(int(msg["date"])).strftime('%Y-%m-%d %H:%M:%S'),
+            'full_name': from_user.name,
+            'first_name': from_user.first_name,
+            'profile': from_user.link,
+            'message': esc(msg["body"])
+        }))
+
+        # handle forwarded messages
+        if 'fwd_messages' in msg and len(msg['fwd_messages']) > 0:
+            self.out.write('<div class="msg-group">')
+            for fwd_msg in msg['fwd_messages']:
+                self.export_message(fwd_msg, nest_level + 1)
+            self.out.write('</div>')
+
+        # now write attachments
+        if 'attachments' in msg:
+            self.export_attachments(AttachContext('+'), msg['attachments'])
+
+        # and now write footer
+        self.out.write(u'</div>')
+
     def export(self):
         self.out.write('<!DOCTYPE html><head><meta charset="utf-8"/><style>%s</style></head><body>' % embed_css)
 
@@ -543,31 +573,7 @@ class DialogExporter:
             if cur_step == 0:
                 progress.update(0, total)
 
-            # write message head
-            from_id = msg['from_id']
-
-            from_user = users.get_data(from_id)
-
-            self.out.write(u'''<div class="msg"><div class="msg-head">[{date}] <a href="{profile}" title="{full_name}">
-                      {first_name}</a>:</div><div class="msg-body">{message}</div>'''.format(**{
-                'date': datetime.datetime.fromtimestamp(
-                    int(msg["date"])).strftime('%Y-%m-%d %H:%M:%S'),
-
-                'full_name': from_user.name,
-
-                'first_name': from_user.first_name,
-
-                'profile': from_user.link,
-
-                'message': esc(msg["body"])
-            }))
-
-            # now write attachments
-            if 'attachments' in msg:
-                self.export_attachments(AttachContext('+'), msg['attachments'])
-
-            # and now write footer
-            self.out.write(u'</div>')
+            self.export_message(msg)
 
             cur_step += 1
             progress.update(cur_step, total)
