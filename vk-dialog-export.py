@@ -27,6 +27,7 @@ parser.add_argument('--audio-depth', dest="audio_depth", default=100, type=int,
                     "to 1, audio file from attached posts are going to be downloaded too, and so on. Default is 100")
 parser.add_argument('--no-voice', dest="no_voice", default=False, action="store_true",
                     help="Do not download voice messages")
+parser.add_argument('--out', dest="out", default="out", type=str, help="Directory for output files")
 
 
 config = configparser.ConfigParser()
@@ -57,9 +58,8 @@ class VkApi:
                 return False
 
             try:
+                sys.stdout.write('Trying to authenticate with your login and password...\n')
                 self.token, self.user_id = vk_auth.auth(self.login, self.password, self.app_id, 'messages')
-                print('token = ' + self.token)
-                print('user_id = ' + self.user_id)
             except RuntimeError:
                 sys.stdout.write("Authentication failed, maybe login/password are wrong?\n")
                 return False
@@ -155,7 +155,15 @@ def fetch_all_dialogs(api):
 
 arguments = parser.parse_args()
 
-sys.stdout.write('Trying to authenticate with your login and password...\n')
+output_dir = arguments.out or 'out'
+output_dir = os.path.abspath(os.path.expandvars(output_dir))
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+if not os.path.isdir(output_dir):
+    sys.stderr.write("Failed to create output directory %s" % out_dir)
+    sys.exit(-1)
+
+sys.stdout.write('Output directory is %s\n' % output_dir)
 
 api = VkApi()
 if not api.initialize():
@@ -232,15 +240,13 @@ class DialogExporter:
         self.api = api
         self.type = dlg_type
         self.id = dlg_id
-        self.attach_dir = str(self.id)
+        self.attach_dir = os.path.join(output_dir, str(self.id))
 
     @property
     def out(self):
         if self.out_obj is None:
-            self.out_obj = codecs.open(
-                'vk_export_%s_%s.html' % (self.type, self.id),
-                "w+", "utf-8"
-            )
+            out_file = os.path.join(output_dir, '%s_%s.html' % (self.type, abs(self.id)))
+            self.out_obj = codecs.open(out_file, "w+", "utf-8")
         return self.out_obj
 
     def find_largest(self, obj, key_override='photo_'):
