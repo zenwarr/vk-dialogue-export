@@ -240,7 +240,7 @@ class DialogExporter:
         self.api = api
         self.type = dlg_type
         self.id = dlg_id
-        self.attach_dir = os.path.join(output_dir, str(self.id))
+        self.attach_dir = str(self.id)
 
     @property
     def out(self):
