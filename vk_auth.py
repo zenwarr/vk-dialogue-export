@@ -6,6 +6,7 @@ import urllib
 import urllib.request
 import urllib.parse
 import html.parser
+import webbrowser
 
 
 class FormParser(html.parser.HTMLParser):
@@ -100,3 +101,16 @@ def auth(email, password, client_id, scope):
     if "access_token" not in answer or "user_id" not in answer:
         raise RuntimeError("Missing some values in answer")
     return answer["access_token"], answer["user_id"]
+
+
+def get_auth_url(client_id, scope):
+    if not isinstance(scope, list):
+        scope = [scope]
+    return "http://oauth.vk.com/oauth/authorize?" + \
+           "redirect_uri=http://oauth.vk.com/blank.html&response_type=token&" + \
+           "client_id=%s&scope=%s&display=wap" % (client_id, ",".join(scope))
+
+
+def auth_in_browser(client_id, scope):
+    webbrowser.open(get_auth_url(client_id, scope))
+

@@ -32,25 +32,39 @@ config.read('config.ini')
 
 
 class VkApi:
-    token = None
-    user_id = None
-    login = config.get('auth', 'login')
-    password = config.get('auth', 'password')
+    token = config.get('auth', 'token', fallback=None)
+    user_id = config.get('auth', 'user_id', fallback=None)
+    login = config.get('auth', 'login', fallback=None)
+    password = config.get('auth', 'password', fallback=None)
     app_id = config.get('auth', 'appid')
 
     def initialize(self):
-        if self.login == 'YOUR_LOGIN' or self.password == 'YOUR_PASSWORD':
-            sys.stdout.write('You should edit config.ini file and enter your login and password '
-                             'for vk.com, otherwise it is not possible to download your messages!')
-            return False
+        if self.token is None or self.user_id is None:
+            # trying to auth with login and password
+            if self.login is None or self.password is None:
+                # ask user to authorize in browser
+                sys.stdout.write("You need to authorize this script to access your private messages on vk.com.\n"
+                                 "To do it, you need to:\n1. Open the following url in your browser:\n"
+                                 + vk_auth.get_auth_url(self.app_id, 'messages') +
+                                 "\n2. Give access to the application.\n"
+                                 "3. Copy access_token and user_id from the url of next page and paste it into config.ini file\n"
+                                 "4. Start this script again.\n"
+                                 )
+                input("Now press Enter to open auth page in your default browser, or Ctrl+C to exit")
+                vk_auth.auth_in_browser(self.app_id, 'messages')
+                return False
 
-        try:
-            self.token, self.user_id = vk_auth.auth(self.login, self.password, self.app_id, 'messages')
-        except RuntimeError:
-            sys.stdout.write("Authentication failed, maybe login/password are wrong?\n")
-            return False
+            try:
+                self.token, self.user_id = vk_auth.auth(self.login, self.password, self.app_id, 'messages')
+                print('token = ' + self.token)
+                print('user_id = ' + self.user_id)
+            except RuntimeError:
+                sys.stdout.write("Authentication failed, maybe login/password are wrong?\n")
+                return False
 
-        sys.stdout.write("Authentication successful\n")
+            sys.stdout.write("Authentication successful\n")
+        else:
+            sys.stdout.write("Authenticating with given token and user_id")
         return True
 
     def call(self, method, params):
