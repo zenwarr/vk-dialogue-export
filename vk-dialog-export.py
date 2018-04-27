@@ -19,12 +19,14 @@ parser.add_argument('--chat', type=int, dest="chat", help="ID of group chat whic
 parser.add_argument('--group', type=int, dest="group", help="ID of public group whose dialog you want to export")
 parser.add_argument('--docs', dest="docs", default=False, action="store_true", help="Do we need to download documents?")
 parser.add_argument('--docs-depth', dest="docs_depth", default=100, type=int,
-                    help="If set to 0, only documents attached to the message itself will be downloaded. If set " +
+                    help="If set to 0, only documents attached to the message itself will be downloaded. If set "
                     "to 1, documents from attached posts are going to be downloaded too, and so on. Default is 100")
 parser.add_argument('--audio', dest="audio", default=False, action="store_true", help="Do we need to download audio?")
 parser.add_argument('--audio-depth', dest="audio_depth", default=100, type=int,
-                    help="If set to 0, only audio files attached to the message itself will be downloaded. If set " +
+                    help="If set to 0, only audio files attached to the message itself will be downloaded. If set "
                     "to 1, audio file from attached posts are going to be downloaded too, and so on. Default is 100")
+parser.add_argument('--no-voice', dest="no_voice", default=False, action="store_true",
+                    help="Do not download voice messages")
 
 
 config = configparser.ConfigParser()
@@ -439,28 +441,32 @@ class DialogExporter:
         filename = '%s.%s' % (audio_msg['id'], audio_msg['ext'])
         url = audio_msg['preview']['audio_msg']['link_mp3'] or audio_msg['preview']['audio_msg']['link_ogg']
 
-        downloaded = None
-        if not url:
-            progress.error("Voice message is no more available, skipping\n")
-        else:
-            downloaded = self.download_file(url, filename)
+        if not arguments.no_voice:
+            downloaded = None
+            if not url:
+                progress.error("Voice message is no more available, skipping\n")
+            else:
+                downloaded = self.download_file(url, filename)
 
-        if downloaded is not None:
-            self.out.write(
-                u"""<div class="att att-voice"><span class="att__title">%sVoice message: </span>[%s] <audio controls src="%s" data-original="%s" /></div>"""
-                % (
+            if downloaded is not None:
+                self.out.write(
+                    u"""<div class="att att-voice"><span class="att__title">%sVoice message: </span>[%s] <audio controls src="%s" data-original="%s" /></div>"""
+                    % (
+                        context.prefix,
+                        fmt_time(audio_msg["preview"]["audio_msg"]["duration"]),
+                        downloaded,
+                        url
+                    ))
+            else:
+                self.out.write(u"""<div class="att att--voice att--failed"><span class="att__title">%sVoice message: 
+                                                        </span></span>[%s] [Failed to download audio %s]</div>""" % (
                     context.prefix,
                     fmt_time(audio_msg["preview"]["audio_msg"]["duration"]),
-                    downloaded,
                     url
                 ))
         else:
-            self.out.write(u"""<div class="att att--voice att--failed"><span class="att__title">%sVoice message: 
-                                                    </span></span>[%s] [Failed to download audio %s]</div>""" % (
-                context.prefix,
-                fmt_time(audio_msg["preview"]["audio_msg"]["duration"]),
-                url
-            ))
+            self.out.write(u'<div class="att att--voice"><span class="att__title">%sVoice message: </span>[%s]</div>'
+                           % (context.prefix, fmt_time(audio_msg["preview"]["audio_msg"]["duration"])))
 
     def handle_doc(self, context, doc):
         if 'preview' in doc and 'audio_msg' in doc['preview']:
