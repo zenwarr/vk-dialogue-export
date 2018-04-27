@@ -64,7 +64,7 @@ class VkApi:
 
             sys.stdout.write("Authentication successful\n")
         else:
-            sys.stdout.write("Authenticating with given token and user_id")
+            sys.stdout.write("Authenticating with given token and user_id\n")
         return True
 
     def call(self, method, params):
@@ -393,6 +393,14 @@ class DialogExporter:
         if "attachments" in wall:
             self.export_attachments(AttachContext(context.prefix + '>', context.depth + 1), wall['attachments'])
 
+        if "copy_history" in wall:
+            # this is a repost
+            for repost in wall['copy_history']:
+                if repost["post_type"] == "post":
+                    self.handle_wall(AttachContext(context.prefix + '>', context.depth + 1), repost)
+                else:
+                    progress.error("No handler for post type: %s\n" % repost["post_type"])
+
         self.out.write(u'</div>')
 
     def handle_audio(self, context, audio):
@@ -401,7 +409,7 @@ class DialogExporter:
             url = audio['url']
 
             downloaded = None
-            if not url:
+            if not url or "audio_api_unavailable.mp3" in url:
                 progress.error("Audio file [%s - %s] is no more available, skipping\n"
                                % (audio['artist'], audio['title']))
             else:
@@ -455,7 +463,7 @@ class DialogExporter:
             ))
 
     def handle_doc(self, context, doc):
-        if 'audio_msg' in doc['preview']:
+        if 'preview' in doc and 'audio_msg' in doc['preview']:
             self.handle_voice_msg(context, doc)
             return
 
