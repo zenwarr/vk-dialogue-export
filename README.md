@@ -1,6 +1,20 @@
 # A tool for exporting private messages from VK.COM social network
 
-Exports dialogs to HTML file. Downloads attached images, stickers, handles and stores titles of audio that users have sent to each other (audio files itself are not downloaded), saves titles and VK-generated descriptions of external links that are accessible in dialogs, thumbnails of videos, links to documents uploaded to VK.COM servers and their names (documents itself are not downloaded), images of gifts users sent to each other, contents and attachments of posts shared by users in dialogs. Its purpose is to save as much information as possible, so you could save your messages and fully understand context and meaning of a dialog with another person.
+[По-русски](https://github.com/zenwarr/vk-dialogue-export/blob/master/README-ru.md)
+
+Exports dialogs to HTML file.
+It downloads:
+- Attached images
+- Stickers
+- Information about audio files (audio files are not downloaded by default, but you can turn it on)
+- Titles and VK-generated descriptions of external links
+- Video thumbnails
+- Links to documents uploaded to VK servers and their names (document files are not downloaded by default, but you can turn it on)
+- Images of gifts send to each other
+- Contents and attachments of posts shared in dialogs
+- Voice messages
+
+Its purpose is to save as much information as possible, so you could save your messages and fully understand context and meaning of a dialog with another person.
 
 You need to have Python > 3.4 to be installed on your computer in order to use the script.
 
@@ -8,15 +22,13 @@ To use it, you should give the script access to your account first.
 There are several authentication methods supported.
 
 1. Open `config.ini` file and enter your login and password instead of `YOUR_LOGIN` and `YOUR_PASSWORD`.
-Now you can start the script.
 
 2. Just start the script and it will give you an url.
 Open it in browser (or just press Enter in console) and give access to the application.
 You will be redirected to an almost blank page.
 Copy access_token and user_id parameters from URL and copy them into config.ini instead of `YOUR_ACCESS_TOKEN` and `YOUR_USER_ID`.
-Now you can start the script.
 
-Export can be started with the following command:
+Now you can start the script with the following command:
 
 ```
 python vk-dialog-export.py
@@ -50,7 +62,7 @@ If you want to download only documents and audio files that are directly attache
 --audio-depth=0
 ```
 
-If `--docs-depth=1` or `--audio-depth=1`, documents are audio files attached to shared posts will be downloaded too.
+If `--docs-depth=1` or `--audio-depth=1`, documents and audio files attached to shared posts will be downloaded too.
 
 Note: you still will not be able to download most audio files because vk.com has disabled its audio API for legal reasons.
 
