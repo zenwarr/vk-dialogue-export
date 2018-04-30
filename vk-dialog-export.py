@@ -266,10 +266,11 @@ class DialogExporter:
             # blocked documents or audio files go here
             return None
 
-        if not os.path.exists(self.attach_dir):
-            os.makedirs(self.attach_dir)
-        elif not os.path.isdir(self.attach_dir):
-            raise OSError("Unable to create attachments directory %s" % self.attach_dir)
+        abs_attach_dir = os.path.join(output_dir, self.attach_dir)
+        if not os.path.exists(abs_attach_dir):
+            os.makedirs(abs_attach_dir)
+        elif not os.path.isdir(abs_attach_dir):
+            raise OSError("Unable to create attachments directory %s" % abs_attach_dir)
 
         rel_out_path = esc("%s/%s" % (self.attach_dir, out_filename))
         abs_out_path = os.path.join(output_dir, rel_out_path)
