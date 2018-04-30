@@ -369,18 +369,26 @@ class DialogExporter:
                     esc(photo['text'])))
 
     def handle_sticker(self, context, sticker):
-        downloaded = self.download_image(sticker)
+        # find the largest sticker image file
+        largest = None
+        for image in sticker['images']:
+            if largest is None or image['width'] > largest['width']:
+                largest = image
+
+        url = largest['url'] if largest is not None else ''
+
+        downloaded = self.download_file(url, str(sticker['sticker_id'])) if largest is not None else None
         if downloaded is not None:
             self.out.write(u"""<div class="att att--sticker"><span class="att__title">%sSticker: </span><img src="%s"
                      data-original="%s"/></div>""" % (
                 context.prefix,
                 downloaded,
-                esc(self.find_largest(sticker))))
+                esc(url)))
         else:
             self.out.write(
                 u'<div class="att att--sticker att--failed"><span class="att__title">%sSticker: </span>[Failed to download sticker %s]</div>' % (
                     context.prefix,
-                    esc(self.find_largest(sticker))))
+                    esc(url)))
 
     def handle_video(self, context, video):
         video_thumb = self.download_image(video)
