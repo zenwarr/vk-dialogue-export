@@ -317,7 +317,7 @@ class DialogExporter:
         finally:
             progress.clear_step_msg()
 
-        sys.stdout.write("\nFailed to retrieve file (%s) after 3 attempts, skipping\n" % url)
+        progress.error("Failed to retrieve file (%s) after 3 attempts, skipping\n" % url)
         return None
 
     def download_image(self, attachment, key_override="photo_"):
