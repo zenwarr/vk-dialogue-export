@@ -76,9 +76,17 @@ class VkApi:
 
         for j in range(3):
             try:
-                return json.loads(urllib.request.urlopen(url, timeout=20).read())["response"]
-            except Exception:
-                sys.stdout.write('Got error while requesting api method %s, trying to resume...\n' % method)
+                reply = json.loads(urllib.request.urlopen(url, timeout=20).read().decode("utf-8"))
+                if 'error' in reply:
+                    error_msg = reply['error']['error_msg']
+                    if error_msg.endswith('.'):
+                        error_msg = error_msg[:-1]
+                    raise RuntimeError(error_msg)
+                else:
+                    return reply['response']
+            except Exception as error:
+                sys.stdout.write('Got error while requesting api method %s (%s), trying to resume...\n'
+                                 % (method, str(error)))
 
         raise RuntimeError('Failed to call the API\n')
 
