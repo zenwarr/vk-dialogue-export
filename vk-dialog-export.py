@@ -11,6 +11,7 @@ import html
 import argparse
 import vk_auth
 import configparser
+import time
 
 parser = argparse.ArgumentParser(description="Exports VK.COM messages into HTML files. "
                                              "Login and password should be specified in config.ini file")
@@ -85,8 +86,8 @@ class VkApi:
                 else:
                     return reply['response']
             except Exception as error:
-                sys.stdout.write('Got error while requesting api method %s (%s), trying to resume...\n'
-                                 % (method, str(error)))
+                sys.stdout.write('Got error while requesting api method %s (%s), trying to resume in 5 sec...\n' % (method, str(error)))
+                time.sleep(5)
 
         raise RuntimeError('Failed to call the API\n')
 
