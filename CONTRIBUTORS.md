@@ -1,2 +1,2 @@
-- [Victor](https://github.com/zenwarr) Idea, development
-- [Mark Gray](https://github.com/markgraydev) Testing
+- [Victor](https://github.com/zenwarr) Idea, testing, development
+- [Mark Gray](https://github.com/markgraydev) Testing, development
