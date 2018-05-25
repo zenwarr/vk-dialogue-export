@@ -13,6 +13,8 @@ import vk_auth
 import configparser
 import time
 
+API_RETRY_COUNT = 15
+
 parser = argparse.ArgumentParser(description="Exports VK.COM messages into HTML files. "
                                              "Login and password should be specified in config.ini file")
 parser.add_argument('--person', type=int, dest="person", help="ID of person whose dialog you want to export")
@@ -75,7 +77,7 @@ class VkApi:
         params.append(("v", "5.74"))
         url = "https://api.vk.com/method/%s?%s" % (method, urllib.parse.urlencode(params))
 
-        for j in range(3):
+        for j in range(API_RETRY_COUNT):
             try:
                 reply = json.loads(urllib.request.urlopen(url, timeout=20).read().decode("utf-8"))
                 if 'error' in reply:
