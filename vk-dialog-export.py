@@ -175,7 +175,7 @@ output_dir = os.path.abspath(os.path.expandvars(output_dir))
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 if not os.path.isdir(output_dir):
-    sys.stderr.write("Failed to create output directory %s" % out_dir)
+    sys.stderr.write("Failed to create output directory %s" % output_dir)
     sys.exit(-1)
 
 sys.stdout.write('Output directory is %s\n' % output_dir)
@@ -358,8 +358,8 @@ class DialogExporter:
             % (
                 context.prefix,
                 esc(link['url']),
-                esc(link['description']),
-                esc(link['title'])
+                esc(link['description'] if 'description' in link else ''),
+                esc(link['title'] if 'title' in link else '')
             ))
 
     def handle_photo(self, context, photo):
