@@ -3,6 +3,9 @@ import codecs
 import json
 
 
+MSG_MERGE_TIMEOUT = 60 * 5 # two sequential messages from the same sender are going to be merged into one if sent in this time range
+
+
 class HTMLExporterOutput:
     def __init__(self):
         self.data = []
@@ -20,6 +23,8 @@ class HTMLExporterContext:
         self.output = output
         self.input_json = input_json
         self.level = level
+        self.prev_merge_sender = None
+        self.prev_merge_msg_timestamp = 0
 
     def next_level(self):
         return HTMLExporterContext(self.progress, self.output, self.input_json, self.level + 1)
@@ -40,7 +45,6 @@ class HTMLExporter:
 
         ctx = HTMLExporterContext(progress, HTMLExporterOutput(), input_json, 1)
 
-        link_block = ''
         if self.options.arguments.embed_resources:
             link_block = '<style>{stylesheet}</style>'.format(stylesheet=stylesheet)
         else:
@@ -106,6 +110,8 @@ class HTMLExporter:
             return action_text_dict.get(action, '')
 
     def export_action_message(self, ctx, msg):
+        ctx.prev_merge_sender = None
+
         sender = ctx.input_json['users'][msg['sender']['id']]
 
         attach_block = ''
@@ -147,12 +153,14 @@ class HTMLExporter:
         if msg['is_updated']:
             extra_classes.append('msg--edited')
 
-        sender = ctx.input_json['users'][msg['sender']['id']]
+        sender_id = msg['sender']['id']
+        sender = ctx.input_json['users'][sender_id]
 
         fwd_block = ''
         if 'forwarded' in msg:
+            nested_context = ctx.next_level()
             for fwd_msg in msg['forwarded']:
-                fwd_block += self.export_message(ctx, fwd_msg)
+                fwd_block += self.export_message(nested_context, fwd_msg)
 
         if len(fwd_block) > 0:
             fwd_block = '<div class="msg-forwarded">{fwd_block}</div>'.format(fwd_block=fwd_block)
@@ -165,9 +173,25 @@ class HTMLExporter:
         if len(attach_block) > 0:
             attach_block = '<div class="msg-attachments">{attach_block}</div>'.format(attach_block=attach_block)
 
+        extra_head_classes = []
+
+        msg_date = msg['date']
+        is_merged = False
+        merge_date_diff = 0
+        if sender_id == ctx.prev_merge_sender and msg_date - ctx.prev_merge_msg_timestamp < MSG_MERGE_TIMEOUT:
+            extra_classes.append('msg--merged')
+            extra_head_classes.append('msg-head--merged')
+            is_merged = True
+            merge_date_diff = msg_date - ctx.prev_merge_msg_timestamp
+
+        # do not allow the next message to be merged if we have forwarded messages
+        if not fwd_block:
+            ctx.prev_merge_sender = sender_id
+            ctx.prev_merge_msg_timestamp = msg_date
+
         return '''
         <div class="msg msg--level-{level} {extra_classes}" data-json='{json}'>
-            <div class="msg-head">
+            <div class="msg-head {extra_head_classes}">
                 <div class="msg-head__photo-block">
                     <img class="msg-head__photo" src="{sender_photo}" />
                 </div>
@@ -175,13 +199,13 @@ class HTMLExporter:
                     <a class="msg-head__profile" href="{sender_profile}" title="{sender_fullname}">{sender_firstname}</a>
                     <div class="msg-head__date-block">
                         <span class="msg-head__date">{date}</span>
-                        {edited_block}
                     </div>
                 </div>
             </div>
             <div class="msg-body">
                 <div class="msg-text">
                     {message}
+                    {edited_block}
                 </div>
                 {fwd_block}
                 {attach_block}
@@ -190,12 +214,15 @@ class HTMLExporter:
         '''.format(**{
             'level': ctx.level,
             'extra_classes': ' '.join(extra_classes) if extra_classes is not None else '',
+            'extra_head_classes': ' '.join(extra_head_classes) if extra_head_classes is not None else '',
             'sender_profile': sender['link'],
             'sender_fullname': sender['name'],
             'sender_firstname': sender['first_name'],
             'sender_photo': sender['filename'],
-            'date': fmt_timestamp(msg['date']),
-            'edited_block': '<span class="msg-head__edit-date">Edited at: {date}</span>'.format(date=fmt_timestamp(msg['updated_at'])) if msg['is_updated'] else '',
+            'date': fmt_timestamp(msg['date']) if not is_merged else fmt_date_diff(merge_date_diff, add_sign=True),
+            'edited_block': '<span class="msg-edited">(Edited {diff} after)</span>'.format(
+                diff=fmt_date_diff(msg['updated_at'] - msg_date)
+            ) if msg['is_updated'] else '',
             'message': msg['message'],
             'fwd_block': fwd_block,
             'attach_block': attach_block,

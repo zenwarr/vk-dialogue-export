@@ -11,6 +11,27 @@ def fmt_timestamp(timestamp):
     return datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
+def fmt_date_diff(diff, add_sign=False):
+    units = [('s', 60), ('m', 60), ('h', 24), ('d', 0)]
+
+    cur = diff
+    result = ''
+    for unit in units:
+        rem = cur % unit[1] if unit[1] > 0 else cur
+        new_result = '{0}{1} {2}'.format(rem, unit[0], result)
+        if unit[1] == 0 or cur <= 0:
+            if rem != 0:
+                result = new_result
+            break
+        result = new_result
+        cur = (cur - rem) // unit[1]
+
+    if add_sign:
+        result = ('+' if diff > 0 else '-') + result
+
+    return result
+
+
 def fmt_size(size):
     for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
         if abs(size) < 1024.0:

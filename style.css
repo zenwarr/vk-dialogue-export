@@ -27,6 +27,34 @@ body {
   background: #cedeff;
 }
 
+.msg--merged {
+  padding-top: 0;
+  position: relative;
+}
+
+.msg-head--merged {
+  position: absolute;
+  top: 1px;
+  opacity: 0;
+  transition: opacity 0.2s linear;
+}
+
+.msg-head--merged .msg-head__info {
+  margin-left: 0;
+}
+
+.msg-head--merged .msg-head__profile {
+  display: none;
+}
+
+.msg-head--merged .msg-head__photo-block {
+  display: none;
+}
+
+.msg--merged:hover > .msg-head--merged {
+  opacity: 1;
+}
+
 .msg-head {
   color: gray;
   font-size: 80%;
@@ -37,6 +65,13 @@ body {
 
 .msg-head__edit-date {
   margin-left: 5px;
+}
+
+.msg-edited {
+  color: gray;
+  font-size: 80%;
+  margin-left: 5px;
+  font-size: 10px;
 }
 
 .msg-head__photo-block {
