@@ -11,7 +11,7 @@ class ExportContext:
         self.users = users if users is not None else dict()
 
     def add_user(self, user_id, exporter=None):
-        if user_id not in self.users:
+        if user_id and user_id not in self.users:
             self.users[user_id] = self.user_fetcher.get_data(user_id, exporter)
 
     def next_level(self):
@@ -174,10 +174,10 @@ class DialogExporter:
 
         return {
             'type': 'link',
-            'url': link['url'],
-            'title': link['title'] if 'title' in link else '',
-            'caption': link['caption'] if 'caption' in link else '',
-            'description': link['description'] if 'description' in link else '',
+            'url': link.get('url', ''),
+            'title': link.get('title', ''),
+            'caption': link.get('caption', ''),
+            'description': link.get('description', ''),
             'filename': downloaded
         }
 
@@ -187,25 +187,26 @@ class DialogExporter:
             'type': 'photo',
             'filename': downloaded,
             'url': self.find_largest(photo),
-            'description': photo['text'],
-            'owner_id': photo['owner_id'],
-            'width': photo['width'],
-            'height': photo['height'],
-            'date': photo['date'],
-            'id': photo['id'],
-            'album_id': photo['album_id']
+            'description': photo.get('text', ''),
+            'owner_id': photo.get('owner_id', 0),
+            'width': photo.get('width', 0),
+            'height': photo.get('height', 0),
+            'date': photo.get('date', 0),
+            'id': photo.get('id', 0),
+            'album_id': photo.get('album_id', 0)
         }
 
     def handle_sticker(self, context, sticker):
         # find the largest sticker image file
         largest = None
-        for image in sticker['images']:
-            if largest is None or image['width'] > largest['width']:
-                largest = image
+        if 'images' in sticker:
+            for image in sticker['images']:
+                if largest is None or image['width'] > largest['width']:
+                    largest = image
 
         url = largest['url'] if largest is not None else ''
 
-        downloaded = self.download_file(url, str(sticker['sticker_id'])) if largest is not None else None
+        downloaded = self.download_file(url, str(sticker.get('sticker_id', 0)), True) if largest is not None else None
 
         return {
             'type': 'sticker',
@@ -216,20 +217,20 @@ class DialogExporter:
     def handle_video(self, context, video):
         video_thumb = self.download_image(video)
 
-        context.add_user(video['owner_id'], self)
+        context.add_user(video.get('owner_id', 0), self)
 
         return {
             'type': 'video',
-            'description': video['description'],
-            'url': "https://vk.com/video%s_%s" % (video['owner_id'], video['id']),
-            'title': video["title"],
-            'duration': video["duration"],
-            'views': video['views'],
-            'comments': video['comments'],
+            'description': video.get('description', ''),
+            'url': "https://vk.com/video%s_%s" % (video.get('owner_id', 0), video.get('id', 0)),
+            'title': video.get("title", ''),
+            'duration': video.get("duration", 0),
+            'views': video.get('views', 0),
+            'comments': video.get('comments', 0),
             'thumbnail_filename': video_thumb,
-            'platform': video['platform'] if 'platform' in video else '',
-            'date': video['date'],
-            'owner_id': video['owner_id']
+            'platform': video.get('platform', '?'),
+            'date': video.get('date', 0),
+            'owner_id': video.get('owner_id', 0)
         }
 
     def handle_wall(self, context, wall):
@@ -241,16 +242,16 @@ class DialogExporter:
 
         exported_post = {
             'type': 'post',
-            'from_id': wall.get('from_id', ''),
-            'to_id': wall.get('to_id', ''),
+            'from_id': wall.get('from_id', 0),
+            'to_id': wall.get('to_id', 0),
             'post_type': wall.get('post_type', ''),
-            'date': wall['date'],
-            'text': wall['text'],
-            'url': "https://vk.com/wall%s_%s" % (wall['from_id'], wall['id']),
-            'views': wall['views']['count'] if 'views' in wall else -1,
-            'likes': wall['likes']['count'] if 'likes' in wall else -1,
-            'comments': wall['comments']['count'] if 'comments' in wall else -1,
-            'reposts': wall['reposts']['count'] if 'reposts' in wall else -1,
+            'date': wall.get('date', 0),
+            'text': wall.get('text', ''),
+            'url': "https://vk.com/wall%s_%s" % (wall.get('from_id', 0), wall.get('id', 0)),
+            'views': wall.get('views', {}).get('count', 0),
+            'likes': wall.get('likes', {}).get('count', 0),
+            'comments': wall.get('comments', {}).get('count', 0),
+            'reposts': wall.get('reposts', {}).get('count', 0),
             'source': wall.get('post_source', {'type': 'api', 'platform': 'unknown'})
         }
 
@@ -261,37 +262,39 @@ class DialogExporter:
             # this is a repost
             for repost in wall['copy_history']:
                 exported_post['repost'] = []
-                if repost["post_type"] == "post":
+                post_type = repost.get('post_type', '')
+                if post_type == "post":
                     exported_post['repost'].append(self.handle_wall(context.next_level(), repost))
                 else:
-                    progress.error("No handler for post type: %s\n" % repost["post_type"])
+                    progress.error("No handler for post type: %s\n" % post_type)
 
         return exported_post
 
     def handle_audio(self, context, audio):
-        filename = '%s.mp3' % audio['id']
-        url = audio['url']
+        filename = '%s.mp3' % audio.get('id', 0)
+        url = audio.get('url', '')
 
         downloaded = None
         if self.options.arguments.audio and context.depth <= self.options.arguments.audio_depth:
             if not url or "audio_api_unavailable.mp3" in url:
                 progress.error("Audio file [%s - %s] is no more available, skipping\n"
-                               % (audio['artist'], audio['title']))
+                               % (audio.get('artist', ''), audio.get('title', '')))
             else:
                 downloaded = self.download_file(url, filename)
 
         return {
             'type': 'audio',
-            'artist': audio['artist'],
-            'title': audio['title'],
-            'duration': audio['duration'],
+            'artist': audio.get('artist', ''),
+            'title': audio.get('title', ''),
+            'duration': audio.get('duration', 0),
             'filename': downloaded,
             'url': url
         }
 
     def handle_voice_msg(self, context, audio_msg):
-        filename = '%s.%s' % (audio_msg['id'], audio_msg['ext'])
-        url = audio_msg['preview']['audio_msg']['link_mp3'] or audio_msg['preview']['audio_msg']['link_ogg']
+        filename = '%s.%s' %(audio_msg.get('id', 0), audio_msg.get('ext', 'mp3'))
+        msg_preview = audio_msg.get('preview', {}).get('audio_msg', {})
+        url = msg_preview.get('link_mp3') or msg_preview.get('link_ogg') or ''
 
         downloaded = None
         if not self.options.arguments.no_voice:
@@ -304,25 +307,25 @@ class DialogExporter:
             'type': 'voice',
             'filename': downloaded,
             'url': url,
-            'duration': audio_msg["preview"]["audio_msg"]["duration"],
-            'id': audio_msg['id'],
-            'owner_id': audio_msg['owner_id'],
-            'date': audio_msg['date']
+            'duration': msg_preview.get('duration', 0),
+            'id': audio_msg.get('id', 0),
+            'owner_id': audio_msg.get('owner_id', 0),
+            'date': audio_msg.get('date', 0)
         }
 
     def handle_doc(self, context, doc):
         if 'preview' in doc and 'audio_msg' in doc['preview']:
             return self.handle_voice_msg(context, doc)
 
-        filename = '%s.%s' % (doc['id'], doc['ext'])
-        url = doc['url']
+        filename = '%s.%s' % (doc.get('id', 0), doc.get('ext', 'unknown'))
+        url = doc.get('url', '')
 
         downloaded = None
         if self.options.arguments.docs and context.depth <= self.options.arguments.docs_depth:
             if url:
                 downloaded = self.download_file(url, filename, False, doc.get('size', -1))
             else:
-                progress.error("Document [%s] is no more available, skipping\n" % doc['title'])
+                progress.error("Document [%s] is no more available, skipping\n" % doc.get('title', ''))
 
         return {
             'type': 'doc',
@@ -361,9 +364,9 @@ class DialogExporter:
     def export_message(self, ctx, vk_msg):
         # write message head
         exported_msg = {
-            'date': vk_msg['date'],
-            'message': vk_msg['body'],
-            'is_important': 'important' in vk_msg and vk_msg['important'],
+            'date': vk_msg.get('date', 0),
+            'message': vk_msg.get('body', ''),
+            'is_important': vk_msg.get('important', False),
             'is_updated': 'update_time' in vk_msg and vk_msg['update_time']
         }
 
@@ -373,7 +376,7 @@ class DialogExporter:
             exported_msg['updated_at'] = vk_msg['update_time']
         exported_msg['is_updated'] = is_updated
 
-        sender_id = vk_msg['from_id'] if 'from_id' in vk_msg else vk_msg['user_id']
+        sender_id = vk_msg.get('from_id', 0) or vk_msg.get('user_id', 0)
         ctx.add_user(sender_id, self)
 
         exported_msg['sender'] = {
@@ -381,7 +384,7 @@ class DialogExporter:
         }
 
         # handle forwarded messages
-        if 'fwd_messages' in vk_msg and len(vk_msg['fwd_messages']) > 0:
+        if len(vk_msg.get('fwd_messages', [])) > 0:
             exported_msg['forwarded'] = []
             for fwd_msg in vk_msg['fwd_messages']:
                 exported_msg['forwarded'].append(self.export_message(ctx, fwd_msg))
