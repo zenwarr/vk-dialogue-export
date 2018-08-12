@@ -1,76 +1,87 @@
-# A tool for exporting private messages from VK.COM social network
+[In english](https://github.com/zenwarr/vk-dialogue-export/blob/master/README-en.md)
 
-[По-русски](https://github.com/zenwarr/vk-dialogue-export/blob/master/README-ru.md)
+# Утилита для экспорта личных сообщений из ВКонтакте
 
-Exports dialogs to HTML file.
-It downloads:
-- Attached images
-- Stickers
-- Information about audio files (audio files are not downloaded by default, but you can turn it on)
-- Titles and VK-generated descriptions of external links
-- Video thumbnails
-- Links to documents uploaded to VK servers and their names (document files are not downloaded by default, but you can turn it on)
-- Images of gifts send to each other
-- Contents and attachments of posts shared in dialogs
-- Voice messages
+Экспортирует личные сообщения в HTML файл.
+Умеет скачивать:
+- Прикрепленные изображения
+- Стикеры
+- Информацию об аудиофайлах (сами файлы по умолчанию не скачиваются, но это можно включить)
+- Заголовки и сгенерированные ВК описания внешних ссылок, которые доступны в диалогах
+- Обложки видео
+- Ссылки на документы, загруженные в ВК и их названия (сами файлы по умолчанию не загружаются, но можно включить)
+- Изображения подарков, отправленных друг другу
+- Содержимое и прикрепления постов, доступных из диалога
+- Голосовые сообщения
 
-Its purpose is to save as much information as possible, so you could save your messages and fully understand context and meaning of a dialog with another person.
+Цель скрипта -- сохранить как можно больше информации, чтобы по сохраненному диалогу можно было бы полностью понять суть диалога с другим человеком.
 
-You need to have Python > 3.4 to be installed on your computer in order to use the script.
+Для работы скрипта требуется Python > 3.4.
 
-To use it, you should give the script access to your account first.
-There are several authentication methods supported.
+Чтобы использовать скрипт, нужно дать ему доступ к своему аккаунту.
+Для этого есть несколько способов:
 
-1. Open `config.ini` file and enter your login and password instead of `YOUR_LOGIN` and `YOUR_PASSWORD`.
+1. Откройте файл `config.ini` и введите свой логин и пароль вместо `YOUR_LOGIN` и `YOUR_PASSWORD`.
 
-2. Just start the script and it will give you an url.
-Open it in browser (or just press Enter in console) and give access to the application.
-You will be redirected to an almost blank page.
-Copy access_token and user_id parameters from URL and copy them into config.ini instead of `YOUR_ACCESS_TOKEN` and `YOUR_USER_ID`.
+2. Просто запустите скрипт (см. ниже), и он предложит вам ссылку, по которой нужно перейти.
+Скопируйте ссылку и откройте ее в браузере, либо просто нажмите Enter в консоли, чтобы открыть ее в дефолтном браузере.
+Откроется страница, в которой нужно дать доступ приложению.
+После этого вас перенаправит на пустую (почти) страницу.
+Скопируйте из адреса этой пустой страницы параметры `access_token` и `user_id` и вставьте их в файл `config.ini` вместо значений `YOUR_ACCESS_TOKEN` и `YOUR_USER_ID`.
+Затем уберите символы `;` в начале этих строк.
 
-Now you can start the script with the following command:
+Теперь можно запустить скрипт следующей командой:
 
 ```
 python vk-dialog-export.py
 ```
 
-This script does not send nor stores your personal information or passwords elsewhere except `config.ini` file.
-Be careful not to expose sensitive information to third parties!
+Скрипт не отсылает и не хранит ваши личные данные в каких-то других местах, кроме файла `config.ini` и выходных файлов.
+Будьте осторожны, чтобы не дать доступ к персональным данным третьей стороне!
 
-By default, output will be written inside `./out` directory.
-You can set output directory with `--out=/home/user/out` option.
+По умолчанию выходные файлы записываются в директорию `./out`.
+Установить выходную директорию можно с помощью опции `--out=/home/user/out`.
 
-By default, the script exports all available dialogs, but you can export a single dialog too by providing one of the following options:
-
-```
---person=PERSON_ID (to export dialog with this person)
---chat=CHAT_ID (to export a chat)
---group=GROUP_ID (to export dialog with a public group)
-```
-
-Also, the script does NOT download most of documents or audio files by default.
-The only documents that are downloaded by default are voice messages.
-You can use the following options to control what should be downloaded:
+По умолчанию скрипт экспортирует все доступные диалоги, но можно экспортировать и только один избранный диалог, указав следующие параметры:
 
 ```
---docs (to download all documents)
---audio (to download all audio files)
---no-voice (to NOT download voice messages)
+--person=PERSON_ID (экспортировать диалог с этим пользователем)
+--chat=CHAT_ID (экспортировать данный чат)
+--group=GROUP_ID (экспортировать диалог с группой)
 ```
 
-If you want to download only documents and audio files that are directly attached to the messages (not the ones attached to shared post), use the following options:
+По умолчанию скрипт не скачивает большую часть документов и аудиофайлы.
+Единственные документы, которые скачиваются по умолчанию -- голосовые сообщения.
+Для того, чтобы управлять этим поведением, используйте следующие параметры:
+
+```
+--docs (скачивать все документы)
+--audio (скачивать все аудиофайлы)
+--no-voice (НЕ скачивать голосовые сообщения)
+```
+
+Если вы хотите скачивать только документы и аудиофайлы, которые напрямую прикреплены к сообщениям (не к расшаренным постам), укажите следующие параметры:
 
 ```
 --docs-depth=0
 --audio-depth=0
 ```
 
-If `--docs-depth=1` or `--audio-depth=1`, documents and audio files attached to shared posts will be downloaded too.
+Если `--docs-depth=1` или `--audio-depth=1`, документы и аудиофайлы, прикрепленные к расшаренным постам, тоже будут скачиваться.
 
-Note: you still will not be able to download most audio files because vk.com has disabled its audio API for legal reasons.
+Внимание: многие аудиофайлы все равно не получится скачать из-за ограничений VK API.
 
-## Notes
+По умолчанию диалоги экспортируются в HTML формате, но можно экспортировать в JSON:
 
-This script is based on [vk-dialogue-export.py](https://github.com/coldmind/vk-dialogue-export.py), and [this pull request](https://github.com/coldmind/vk-dialogue-export.py/pull/7) but is completely rewritten.
+```
+--format=json (экспортировать в JSON)
+--format=html (экспортировать в HTML, по умолчанию)
+```
 
-Both scripts use [https://github.com/dzhioev/vk_api_auth](https://github.com/dzhioev/vk_api_auth) for OAuth authorization.
+Дополнительные параметры экспорта:
+
+```
+--embed-resources (внедрять стили и скрипты в HTML файл, по умолчанию сохраняются в отдельных файлах)
+--save-raw (дополнительно сохранять в JSON ответы VK API)
+--save-json-in-html (дополнительно сохранять сообщения в JSON формате внутри HTML файлов, JSON будет записан в атрибут `data-json`)
+```
