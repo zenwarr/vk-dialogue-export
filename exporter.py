@@ -4,6 +4,9 @@ from progress import *
 from utils import *
 
 
+USER_ACTIONS = ['chat_kick_user', 'chat_pin_message', 'chat_unpin_message']
+
+
 class ExportContext:
     def __init__(self, user_fetcher, depth=0, users=None):
         self.depth = depth
@@ -400,7 +403,12 @@ class DialogExporter:
             exported_msg['action_text'] = vk_msg['action_text']
 
         if 'action_mid' in vk_msg:
-            exported_msg['action_mid'] = vk_msg['action_mid']
+            mid = vk_msg['action_mid']
+
+            exported_msg['action_mid'] = mid
+
+            if mid > 0 and 'action' in vk_msg and vk_msg['action'] in USER_ACTIONS:
+                ctx.add_user(mid)
 
         if self.options.arguments.save_raw:
             exported_msg['raw'] = vk_msg
