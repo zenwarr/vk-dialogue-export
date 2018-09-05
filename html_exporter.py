@@ -93,21 +93,24 @@ class HTMLExporter:
             'chat_invite_user_by_link': 'Entered the chat by invite link'
         }
 
-        if action == 'chat_title_update':
-            return 'Changed chat title to: <span class="new-chat-title">{title}</span>'.format(title=action_text)
-        elif action == 'chat_pin_message':
-            return 'Pinned message <span class="new-chat-title">{text}</span>'.format(text=action_text)
-        elif action == 'chat_unpin_message':
-            return 'Unpinned message <span class="new-chat-title">{text}</span>'.format(text=action_text)
-        elif action == 'chat_kick_user':
-            if action_mid is None:
-                return 'Kicked user'
-            elif action_mid == msg['sender']['id']:
-                return 'Left the chat'
+        try:
+            if action == 'chat_title_update':
+                return 'Changed chat title to: <span class="new-chat-title">{title}</span>'.format(title=action_text)
+            elif action == 'chat_pin_message':
+                return 'Pinned message <span class="new-chat-title">{text}</span>'.format(text=action_text)
+            elif action == 'chat_unpin_message':
+                return 'Unpinned message <span class="new-chat-title">{text}</span>'.format(text=action_text)
+            elif action == 'chat_kick_user':
+                if action_mid is None:
+                    return 'Kicked user'
+                elif action_mid == msg['sender']['id']:
+                    return 'Left the chat'
+                else:
+                    return 'Kicked user <span class="new-chat-title">{name}</span>'.format(name=ctx.input_json['users'].get(action_mid)['name'])
             else:
-                return 'Kicked user <span class="new-chat-title">{name}</span>'.format(name=ctx.input_json['users'].get(action_mid)['name'])
-        else:
-            return action_text_dict.get(action, '')
+                return action_text_dict.get(action, '')
+        except TypeError:
+            return 'Some mysterious action or user name'
 
     def export_action_message(self, ctx, msg):
         ctx.prev_merge_sender = None
